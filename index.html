@@ -72,6 +72,10 @@
     text-align: center; font-size: 14px;
   }
   .locked-banner b { font-size: 28px; display: block; color: var(--accent); }
+  .send-box { margin: -4px 0 10px; font-size: 14px; text-align: center; }
+  .send-box .ok { color: #1f8a4c; font-weight: 700; }
+  .send-box .ng { color: var(--danger); font-weight: 700; }
+  .send-box .btn { margin-top: 8px; }
   .code { font-family: ui-monospace, Menlo, monospace; letter-spacing: .1em; }
   .rules { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-top: 12px; font-size: 13px; line-height: 1.7; }
   .rules summary { font-weight: 700; cursor: pointer; }
@@ -86,6 +90,10 @@
 </header>
 
 <div id="lockedBanner" class="locked-banner" hidden></div>
+<div id="sendBox" class="send-box" hidden>
+  <span id="sendMsg"></span>
+  <button class="btn" id="resendBtn" type="button" hidden>もう一度送信</button>
+</div>
 
 <div class="score">
   <div><b id="sCells">0</b><span>達成マス</span></div>
@@ -231,6 +239,9 @@
   }
 
   // ---- 保存（この端末のブラウザ内のみ） ----
+  // 結果の送信先（Google Apps Script のウェブアプリURL）。空なら送信しない
+  const SUBMIT_URL = "";
+
   const KEY = "bingo25:v1";
   function load() { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} }
@@ -346,12 +357,47 @@
   $("submitBtn").addEventListener("click", () => $("dlgSubmit").showModal());
   $("dlgSubmit").addEventListener("close", () => {
     if ($("dlgSubmit").returnValue !== "ok") return;
-    state.locked = true; state.lockedAt = Date.now(); save(); render();
+    state.locked = true; state.lockedAt = Date.now(); state.sent = false; save(); render();
     scrollTo({ top: 0, behavior: "smooth" });
+    sendResult();
   });
 
+  // ---- 結果をスプレッドシートへ送信 ----
+  let sending = false;
+  async function sendResult() {
+    if (!SUBMIT_URL || sending || !state.locked) return;
+    sending = true; renderSend();
+    const sc = calc();
+    const payload = {
+      code: codeText, name: state.me, total: sc.total, lines: sc.lines.length,
+      cells: sc.cells, people: sc.people, submittedAt: new Date(state.lockedAt).toISOString(),
+      squares: card.map((m, i) => ({ mission: m.t, name: state.names[i] || "" })),
+    };
+    try {
+      // text/plain + no-cors：Apps Script へ事前確認なしで送れる形式（返答の中身は読めない）
+      await fetch(SUBMIT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
+      state.sent = true;
+    } catch {
+      state.sent = false;
+    }
+    sending = false; save(); renderSend();
+  }
+  function renderSend() {
+    const box = $("sendBox");
+    if (!SUBMIT_URL || !state.locked) { box.hidden = true; return; }
+    box.hidden = false;
+    const msg = $("sendMsg"), btn = $("resendBtn");
+    if (sending) { msg.textContent = "結果を送信しています…"; msg.className = ""; btn.hidden = true; }
+    else if (state.sent) { msg.textContent = "✓ 結果を運営に送信しました"; msg.className = "ok"; btn.hidden = true; }
+    else { msg.textContent = "結果を送信できませんでした。電波の良い場所で「もう一度送信」を押してください。"; msg.className = "ng"; btn.hidden = false; }
+  }
+  $("resendBtn").addEventListener("click", sendResult);
+
   render();
+  renderSend();
   if (!state.me) $("dlgMe").showModal();
+  // 前回の送信が失敗していたら、開き直したときに自動で再送信
+  if (state.locked && !state.sent) sendResult();
 })();
 </script>
 </body>
