@@ -299,7 +299,7 @@
     if (state.locked) {
       const t = new Date(state.lockedAt);
       lb.hidden = false;
-      lb.innerHTML = `提出済み（${t.getHours()}:${String(t.getMinutes()).padStart(2,"0")}）<b>${sc.total}点</b>この画面をスタッフに見せてください`;
+      lb.innerHTML = `提出済み（${t.getHours()}:${String(t.getMinutes()).padStart(2,"0")}）<b>${sc.total}点</b>`;
       $("submitBtn").hidden = true;
       $("hint").hidden = true;
     }
