@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f6feb">
+<title>25マス交流チャレンジ</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #fff; --ink: #16181d; --muted: #6b7280; --line: #d5d8de;
+    --accent: #1f6feb; --done: #e6f0ff; --done-ink: #0b4bb3; --bingo: #fff3c4; --bingo-line: #e3a500;
+    --danger: #c62828;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111318; --panel: #1b1e25; --ink: #eceef2; --muted: #9aa1ad; --line: #343945;
+      --accent: #5b9bff; --done: #1d2f4f; --done-ink: #a9c8ff; --bingo: #3d3214; --bingo-line: #e3b341;
+      --danger: #ff6b6b;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+    padding: env(safe-area-inset-top) 12px calc(env(safe-area-inset-bottom) + 16px);
+    max-width: 560px; margin: 0 auto;
+  }
+  header { padding: 12px 0 8px; }
+  h1 { font-size: 20px; margin: 0; }
+  .who { font-size: 13px; color: var(--muted); margin-top: 2px; display: flex; justify-content: space-between; gap: 8px; }
+  .score { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 10px; }
+  .score div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 4px; text-align: center; }
+  .score b { display: block; font-size: 20px; line-height: 1.2; }
+  .score .total b { color: var(--accent); }
+  .score span { font-size: 11px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .cell {
+    position: relative; min-height: 86px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--panel); color: var(--ink); padding: 6px 3px; font: inherit; text-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer;
+  }
+  .cell .st { position: absolute; top: 2px; right: 4px; font-size: 8px; color: var(--bingo-line); letter-spacing: -1px; }
+  .cell .lb { font-size: clamp(10px, 2.9vw, 13px); font-weight: 700; line-height: 1.2; word-break: break-all; }
+  .cell .nm { font-size: clamp(9px, 2.6vw, 12px); color: var(--done-ink); font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cell.done { background: var(--done); border-color: var(--accent); }
+  .cell.inbingo { background: var(--bingo); border-color: var(--bingo-line); border-width: 2px; }
+  .cell.done .lb { font-size: clamp(9px, 2.5vw, 11px); opacity: .8; }
+  .hint { font-size: 12px; color: var(--muted); margin: 8px 2px; line-height: 1.6; }
+  .btn {
+    display: block; width: 100%; padding: 14px; border-radius: 12px; border: 0; font: inherit; font-size: 16px;
+    font-weight: 700; background: var(--accent); color: #fff; margin-top: 12px; cursor: pointer;
+  }
+  .btn.sub { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .btn.danger { background: var(--danger); }
+  dialog {
+    border: 0; border-radius: 16px; padding: 18px; width: min(92vw, 420px);
+    background: var(--panel); color: var(--ink);
+  }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  dialog h2 { font-size: 17px; margin: 0 0 4px; line-height: 1.4; }
+  dialog .meta { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  dialog label { font-size: 13px; color: var(--muted); }
+  dialog input {
+    width: 100%; font-size: 18px; padding: 12px; margin-top: 4px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  }
+  .err { color: var(--danger); font-size: 13px; min-height: 1.4em; margin-top: 6px; }
+  .row { display: flex; gap: 8px; }
+  .row .btn { margin-top: 8px; }
+  .locked-banner {
+    background: var(--panel); border: 2px solid var(--accent); border-radius: 12px; padding: 12px; margin-bottom: 10px;
+    text-align: center; font-size: 14px;
+  }
+  .locked-banner b { font-size: 28px; display: block; color: var(--accent); }
+  .code { font-family: ui-monospace, Menlo, monospace; letter-spacing: .1em; }
+  .rules { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-top: 12px; font-size: 13px; line-height: 1.7; }
+  .rules summary { font-weight: 700; cursor: pointer; }
+  .rules ul { padding-left: 18px; margin: 6px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>25マス交流チャレンジ</h1>
+  <div class="who"><span id="me"></span><span>カード番号 <span class="code" id="code"></span></span></div>
+</header>
+
+<div id="lockedBanner" class="locked-banner" hidden></div>
+
+<div class="score">
+  <div><b id="sCells">0</b><span>達成マス</span></div>
+  <div><b id="sLines">0</b><span>ビンゴ</span></div>
+  <div class="total"><b id="sTotal">0</b><span>合計点</span></div>
+  <div><b id="sPeople">0</b><span>交流人数</span></div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<p class="hint" id="hint">条件に当てはまる人を見つけたら、マスをタップして<b>その人の名前を入力</b>しましょう（苗字＋名の頭文字。例：山田 T）。<b>同じ人は1マスだけ</b>です。</p>
+
+<details class="rules">
+  <summary>ルール</summary>
+  <ul>
+    <li>1マス達成で 1点。ビンゴ1列達成につき 3点追加</li>
+    <li>ビンゴ＝縦・横・斜めの1列がすべて埋まること（何列でも加算）</li>
+    <li>名前は自分で入力。<b>同じ人の名前は1マスまで</b>／自分の名前は不可</li>
+    <li>終了の合図が出たら「提出する」を押し、スタッフに画面を見せてください</li>
+    <li>順位：合計点 → ビンゴ数 → 抽選</li>
+  </ul>
+</details>
+
+<button class="btn" id="submitBtn">終了の合図が出たら：提出する</button>
+
+<!-- 最初の名前登録 -->
+<dialog id="dlgMe">
+  <form method="dialog" id="formMe">
+    <h2>ようこそ！</h2>
+    <div class="meta">はじめにあなたの名前を入力してください（苗字＋名の頭文字。例：山田 T）</div>
+    <label>あなたの名前<input id="inMe" autocomplete="off" required maxlength="20"></label>
+    <div class="err" id="errMe"></div>
+    <button class="btn" value="ok">はじめる</button>
+  </form>
+</dialog>
+
+<!-- マス入力 -->
+<dialog id="dlgCell">
+  <form method="dialog" id="formCell">
+    <h2 id="cTitle"></h2>
+    <div class="meta" id="cMeta"></div>
+    <label>条件に当てはまる相手の名前<input id="inName" autocomplete="off" maxlength="20" placeholder="例：山田 T"></label>
+    <div class="err" id="errCell"></div>
+    <div class="row">
+      <button class="btn sub" value="cancel" formnovalidate>キャンセル</button>
+      <button class="btn" value="save" id="saveBtn">記入する</button>
+    </div>
+    <button class="btn sub" value="clear" id="clearBtn" formnovalidate>このマスを消す</button>
+  </form>
+</dialog>
+
+<!-- 提出確認 -->
+<dialog id="dlgSubmit">
+  <form method="dialog">
+    <h2>提出しますか？</h2>
+    <div class="meta">提出すると、これ以降はマスを編集できなくなります。<br>終了の合図が出てから押してください。</div>
+    <div class="row">
+      <button class="btn sub" value="cancel">戻る</button>
+      <button class="btn danger" value="ok">提出する</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  // ---- ミッション（難易度ごと） ----
+  const CENTER = { t: "今日初めて話す人", s: "今日初めて話す人", lv: 1 };
+  const POOL = {
+    1: [
+      { t: "今年釣りをした人", s: "今年釣りをした人" },
+      { t: "社会人歴が自分より長い人", s: "社会人歴が自分より長い人" },
+      { t: "自分と異なるプロジェクトに所属している人", s: "自分と異なるプロジェクトに所属している人" },
+      { t: "直近1か月で映画館に行った人", s: "直近1か月で映画館に行った人" },
+      { t: "今日朝ごはんを食べた人", s: "今日朝ごはんを食べた人" },
+      { t: "今年海外旅行に行った人", s: "今年海外旅行に行った人" },
+      { t: "今日コーヒーを飲んだ人", s: "今日コーヒーを飲んだ人" },
+      { t: "直近1か月でラーメン屋に行った人", s: "直近1か月でラーメン屋に行った人" },
+      { t: "社会人歴が自分より短い人", s: "社会人歴が自分より短い人" },
+    ],
+    2: [
+      { t: "今年ライブ・コンサートに行った人", s: "今年ライブ・コンサートに行った人" },
+      { t: "植物を育てている人", s: "植物を育てている人" },
+      { t: "犬を飼っている人", s: "犬を飼っている人" },
+      { t: "楽器を演奏できる人", s: "楽器を演奏できる人" },
+      { t: "今年野球観戦に行った人", s: "今年野球観戦に行った人" },
+      { t: "猫を飼っている人", s: "猫を飼っている人" },
+      { t: "今年資格試験を受けた人", s: "今年資格試験を受けた人" },
+      { t: "今年ディズニーリゾートに行った人", s: "今年ディズニーリゾートに行った人" },
+      { t: "Switch2を持っている人", s: "Switch2を持っている人" },
+      { t: "ジムに通っている人", s: "ジムに通っている人" },
+    ],
+    3: [
+      { t: "誕生月が自分と同じ人", s: "誕生月が自分と同じ人" },
+      { t: "出身都道府県が自分と同じ人", s: "出身都道府県が自分と同じ人" },
+      { t: "フルマラソンを完走したことがある人", s: "フルマラソンを完走したことがある人" },
+      { t: "iPhone duoを持っている人", s: "iPhone duoを持っている人" },
+      { t: "左利きの人", s: "左利きの人" },
+    ],
+  };
+  // 全12ラインが「★3×1・★2×2・★1×2」になる基本配置（中央は★1）
+  const BASE = [
+    [3,1,1,2,2],
+    [1,2,2,3,1],
+    [2,3,1,1,2],
+    [1,1,2,2,3],
+    [2,2,3,1,1],
+  ];
+  const LINES = [];
+  for (let i = 0; i < 5; i++) {
+    LINES.push([0,1,2,3,4].map(j => i*5+j));
+    LINES.push([0,1,2,3,4].map(j => j*5+i));
+  }
+  LINES.push([0,6,12,18,24], [4,8,12,16,20]);
+
+  // ---- 乱数（シードから同じカードを再現できる） ----
+  function rng(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function shuffle(arr, r) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+  // 盤面の回転・反転（8通り）。どれもライン構造を保つため、難易度バランスは崩れない
+  function transform(map, k) {
+    let m = map.map(row => row.slice());
+    if (k & 4) m = m.map(row => row.slice().reverse());
+    for (let n = 0; n < (k & 3); n++) m = m[0].map((_, c) => m.map(row => row[c]).reverse());
+    return m;
+  }
+  function buildCard(seed) {
+    const r = rng(seed);
+    const map = transform(BASE, Math.floor(r() * 8)).flat();
+    const pools = { 1: shuffle(POOL[1], r), 2: shuffle(POOL[2], r), 3: shuffle(POOL[3], r) };
+    return map.map((lv, i) => i === 12 ? CENTER : { ...pools[lv].pop(), lv });
+  }
+
+  // ---- 保存（この端末のブラウザ内のみ） ----
+  const KEY = "bingo25:v1";
+  function load() { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; } }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} }
+
+  const params = new URLSearchParams(location.search);
+  if (params.has("reset") && confirm("この端末のビンゴを初期化しますか？（スタッフ用）")) {
+    try { localStorage.removeItem(KEY); } catch {}
+    history.replaceState(null, "", location.pathname);
+  }
+
+  let state = load();
+  if (!state || typeof state.seed !== "number") {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    state = { seed: buf[0], me: "", names: Array(25).fill(""), locked: false, lockedAt: null };
+    save();
+  }
+  const card = buildCard(state.seed);
+  const norm = s => (s || "").normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+  const codeText = state.seed.toString(36).toUpperCase().padStart(7, "0").slice(-6);
+
+  // ---- 得点 ----
+  function calc() {
+    const done = state.names.map(n => !!n);
+    const cells = done.filter(Boolean).length;
+    const lines = LINES.filter(L => L.every(i => done[i]));
+    const people = new Set(state.names.filter(Boolean).map(norm)).size;
+    return { cells, lines, people, total: cells + lines.length * 3 };
+  }
+
+  // ---- 描画 ----
+  const $ = id => document.getElementById(id);
+  const grid = $("grid");
+  function render() {
+    const sc = calc();
+    const bingoCells = new Set(sc.lines.flat());
+    $("me").textContent = state.me ? `あなた：${state.me}` : "";
+    $("code").textContent = codeText;
+    $("sCells").textContent = sc.cells;
+    $("sLines").textContent = sc.lines.length;
+    $("sTotal").textContent = sc.total;
+    $("sPeople").textContent = sc.people;
+    grid.innerHTML = "";
+    card.forEach((m, i) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "cell" + (state.names[i] ? " done" : "") + (bingoCells.has(i) ? " inbingo" : "");
+      b.setAttribute("aria-label", m.t + (state.names[i] ? `（${state.names[i]}）` : ""));
+      const lb = document.createElement("span"); lb.className = "lb"; lb.textContent = m.t;
+      b.append(lb);
+      if (state.names[i]) { const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = state.names[i]; b.append(nm); }
+      b.addEventListener("click", () => openCell(i));
+      grid.append(b);
+    });
+    const lb = $("lockedBanner");
+    if (state.locked) {
+      const t = new Date(state.lockedAt);
+      lb.hidden = false;
+      lb.innerHTML = `提出済み（${t.getHours()}:${String(t.getMinutes()).padStart(2,"0")}）<b>${sc.total}点</b>この画面をスタッフに見せてください`;
+      $("submitBtn").hidden = true;
+      $("hint").hidden = true;
+    }
+  }
+
+  // ---- マス入力 ----
+  let current = -1;
+  function openCell(i) {
+    current = i;
+    const m = card[i];
+    $("cTitle").textContent = m.t;
+    $("cMeta").textContent = "条件に当てはまることを相手に確認してから、相手の名前を入力してください";
+    $("inName").value = state.names[i];
+    $("errCell").textContent = "";
+    const ro = state.locked;
+    $("inName").disabled = ro;
+    $("saveBtn").hidden = ro;
+    $("clearBtn").hidden = ro || !state.names[i];
+    if (ro) $("cMeta").textContent = "提出済みのため編集できません";
+    $("dlgCell").showModal();
+    if (!ro) setTimeout(() => $("inName").focus(), 50);
+  }
+  function validate(name, idx) {
+    const n = norm(name);
+    if (!n) return "名前を入力してください";
+    if (n === norm(state.me)) return "自分の名前は記入できません";
+    const used = state.names.filter((x, j) => j !== idx && norm(x) === n).length;
+    if (used >= 1) return "同じ人の名前は1マスまでです";
+    return "";
+  }
+  $("formCell").addEventListener("submit", e => {
+    const action = e.submitter && e.submitter.value;
+    if (action === "save") {
+      const name = $("inName").value.trim();
+      const err = validate(name, current);
+      if (err) { e.preventDefault(); $("errCell").textContent = err; return; }
+      state.names[current] = name;
+    } else if (action === "clear") {
+      if (!confirm("このマスの名前を消しますか？")) { e.preventDefault(); return; }
+      state.names[current] = "";
+    }
+    save(); render();
+  });
+
+  // ---- 自分の名前 ----
+  $("formMe").addEventListener("submit", e => {
+    const v = $("inMe").value.trim();
+    if (!v) { e.preventDefault(); $("errMe").textContent = "名前を入力してください"; return; }
+    state.me = v; save(); render();
+  });
+  $("dlgMe").addEventListener("cancel", e => e.preventDefault());
+
+  // ---- 提出 ----
+  $("submitBtn").addEventListener("click", () => $("dlgSubmit").showModal());
+  $("dlgSubmit").addEventListener("close", () => {
+    if ($("dlgSubmit").returnValue !== "ok") return;
+    state.locked = true; state.lockedAt = Date.now(); save(); render();
+    scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  render();
+  if (!state.me) $("dlgMe").showModal();
+})();
+</script>
+</body>
+</html>
