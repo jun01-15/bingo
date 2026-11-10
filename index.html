@@ -28,7 +28,7 @@
   header { padding: 12px 0 8px; }
   h1 { font-size: 20px; margin: 0; }
   .who { font-size: 13px; color: var(--muted); margin-top: 2px; display: flex; justify-content: space-between; gap: 8px; }
-  .score { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 10px; }
+  .score { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0 10px; }
   .score div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 4px; text-align: center; }
   .score b { display: block; font-size: 20px; line-height: 1.2; }
   .score .total b { color: var(--accent); }
@@ -100,7 +100,6 @@
   <div><b id="sCells">0</b><span>達成マス</span></div>
   <div><b id="sLines">0</b><span>ビンゴ</span></div>
   <div class="total"><b id="sTotal">0</b><span>合計点</span></div>
-  <div><b id="sPeople">0</b><span>交流人数</span></div>
 </div>
 
 <div class="grid" id="grid"></div>
@@ -282,7 +281,6 @@
     $("sCells").textContent = sc.cells;
     $("sLines").textContent = sc.lines.length;
     $("sTotal").textContent = sc.total;
-    $("sPeople").textContent = sc.people;
     grid.innerHTML = "";
     card.forEach((m, i) => {
       const b = document.createElement("button");
